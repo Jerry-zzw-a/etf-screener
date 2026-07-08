@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A股ETF动量轮动筛选系统</title>
+    <link rel="stylesheet" href="/static/style.css?v=3">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>📈 A股ETF动量轮动筛选系统</h1>
+            <p class="subtitle">策略：每日14:40选出动量最强的1只ETF持有 | 回测基于2020-2025年数据</p>
+        </header>
+
+        <!-- 控制面板 -->
+        <section class="control-panel">
+            <div class="control-row">
+                <div class="control-group">
+                    <label>回测开始</label>
+                    <input type="date" id="startDate" value="2020-07-01">
+                </div>
+                <div class="control-group">
+                    <label>回测结束</label>
+                    <input type="date" id="endDate" value="2025-12-31">
+                </div>
+                <div class="control-group">
+                    <label>初始资金(万)</label>
+                    <input type="number" id="capital" value="10" min="1" max="1000" step="1">
+                </div>
+                <div class="control-group">
+                    <label>5日权重</label>
+                    <input type="range" id="w5" value="30" min="0" max="100" step="5">
+                    <span class="range-value" id="w5Val">30%</span>
+                </div>
+                <div class="control-group">
+                    <label>10日权重</label>
+                    <input type="range" id="w10" value="30" min="0" max="100" step="5">
+                    <span class="range-value" id="w10Val">30%</span>
+                </div>
+                <div class="control-group">
+                    <label>20日权重</label>
+                    <input type="range" id="w20" value="40" min="0" max="100" step="5">
+                    <span class="range-value" id="w20Val">40%</span>
+                </div>
+                <button class="btn-run" onclick="runBacktest()">▶ 运行回测</button>
+            </div>
+            <div class="hint">调整权重后点击"运行回测"重新计算。点击"立即筛选"查看实时排名。</div>
+        </section>
+
+        <!-- 定时任务面板 -->
+        <section class="scheduler-panel" id="schedulerPanel">
+            <div class="scheduler-header">
+                <h3>⏰ 每日14:40自动筛选</h3>
+                <div class="scheduler-status" id="schedulerStatusBadge">
+                    <span class="status-dot off"></span>
+                    <span class="status-text">未启动</span>
+                </div>
+            </div>
+            <div class="scheduler-body">
+                <div class="scheduler-info">
+                    <div class="info-item">
+                        <span class="info-label">下次运行</span>
+                        <span class="info-value" id="nextRunTime">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">上次运行</span>
+                        <span class="info-value" id="lastRunTime">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">今日交易日</span>
+                        <span class="info-value" id="isTradingDay">--</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">交易时段</span>
+                        <span class="info-value" id="isTradingTime">--</span>
+                    </div>
+                </div>
+                <div class="scheduler-actions">
+                    <button class="btn-scheduler btn-start" id="btnSchedulerStart" onclick="startScheduler()">▶ 开启定时</button>
+                    <button class="btn-scheduler btn-stop" id="btnSchedulerStop" onclick="stopScheduler()" disabled>⏹ 关闭定时</button>
+                    <button class="btn-scheduler btn-now" id="btnRunNow" onclick="runScreeningNow()">🔄 立即筛选</button>
+                </div>
+            </div>
+            <div class="screening-alert" id="screeningAlert" style="display:none;">
+                <div class="alert-header">📢 筛选结果</div>
+                <div class="alert-body" id="screeningAlertBody"></div>
+            </div>
+        </section>
+
+        <!-- 核心指标 -->
+        <section class="metrics-row" id="metricsRow">
+            <div class="metric-card"><div class="metric-label">总收益率</div><div class="metric-value" id="totalReturn">--</div><div class="metric-sub">累计盈亏</div></div>
+            <div class="metric-card"><div class="metric-label">年化收益率</div><div class="metric-value" id="annualReturn">--</div><div class="metric-sub">年化复合收益</div></div>
+            <div class="metric-card"><div class="metric-label">最大回撤</div><div class="metric-value danger" id="maxDrawdown">--</div><div class="metric-sub">历史最大亏损</div></div>
+            <div class="metric-card"><div class="metric-label">夏普比率</div><div class="metric-value" id="sharpeRatio">--</div><div class="metric-sub">风险调整收益</div></div>
+            <div class="metric-card"><div class="metric-label">日胜率</div><div class="metric-value" id="winRate">--</div><div class="metric-sub">日收益>0天数占比</div></div>
+            <div class="metric-card"><div class="metric-label">交易次数</div><div class="metric-value" id="totalTrades">--</div><div class="metric-sub">买卖总次数</div></div>
+        </section>
+
+        <!-- 图表 -->
+        <div class="charts-grid">
+            <div class="chart-panel large">
+                <h3>📊 累计收益曲线（策略 vs 沪深300）</h3>
+                <div class="chart-container" id="equityChart"></div>
+            </div>
+            <div class="chart-panel">
+                <h3>🗓️ 月度收益热力图</h3>
+                <div class="chart-container" id="heatmapChart"></div>
+            </div>
+            <div class="chart-panel">
+                <h3>📅 年度收益对比</h3>
+                <div class="chart-container" id="yearlyChart"></div>
+            </div>
+            <div class="chart-panel">
+                <h3>🎯 ETF动量排名 TOP 20</h3>
+                <div class="signal-table-wrap">
+                    <table class="signal-table"><thead><tr><th>#</th><th>代码</th><th>名称</th><th>得分</th><th>5日</th><th>10日</th><th>20日</th><th>最新价</th></tr></thead>
+                    <tbody id="signalBody"><tr><td colspan="8" class="loading">点击"立即筛选"或"运行回测"</td></tr></tbody></table>
+                </div>
+            </div>
+            <div class="chart-panel">
+                <h3>📋 最近交易记录</h3>
+                <div class="signal-table-wrap">
+                    <table class="signal-table"><thead><tr><th>日期</th><th>操作</th><th>代码</th><th>价格</th><th>数量</th><th>金额</th></tr></thead>
+                    <tbody id="tradeBody"><tr><td colspan="6" class="loading">回测后显示</td></tr></tbody></table>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer">
+            <p class="disclaimer">⚠️ 免责声明：本工具仅供学习研究，不构成投资建议。股市有风险，投资需谨慎。</p>
+        </footer>
+    </div>
+
+    <div class="loading-overlay" id="loadingOverlay" style="display:none;">
+        <div class="loading-spinner"><div class="spinner"></div><p>计算中，请稍候...</p></div>
+    </div>
+
+    <script src="/static/app.js?v=3"></script>
+</body>
+</html>

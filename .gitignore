@@ -1,0 +1,13 @@
+# 忽略单个ETF缓存（all_data.pkl已包含全部数据）
+data/*.pkl
+!data/all_data.pkl
+!data/etf_list.pkl
+!data/benchmark_hs300.pkl
+
+# 忽略二进制文件和临时文件
+cloudflared.exe
+__pycache__/
+*.pyc
+/tmp/
+.claude/
+scheduler_status.json
