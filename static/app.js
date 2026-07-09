@@ -8,6 +8,15 @@ let heatmapChart = null;
 let yearlyChart = null;
 let schedulerTimer = null;
 
+// 从URL中提取key参数，所有API请求都带上（应对Render cookie丢失问题）
+const urlParams = new URLSearchParams(window.location.search);
+const AUTH_KEY = urlParams.get("key") || "";
+
+function apiUrl(path) {
+    const sep = path.includes("?") ? "&" : "?";
+    return AUTH_KEY ? path + sep + "key=" + AUTH_KEY : path;
+}
+
 // ==========================================
 // 初始化
 // ==========================================
@@ -79,7 +88,7 @@ async function runBacktest() {
             w20: parseInt(document.getElementById("w20").value) / 100,
         });
 
-        const resp = await fetch("/api/backtest?" + params.toString());
+        const resp = await fetch(apiUrl("/api/backtest?" + params.toString()));
         if (!resp.ok) {
             const err = await resp.json().catch(() => ({}));
             throw new Error(err.error || "服务器错误 (" + resp.status + ")");
@@ -241,7 +250,7 @@ async function fetchSignals() {
     const w20 = parseInt(document.getElementById("w20").value) / 100;
 
     try {
-        const resp = await fetch(`/api/signals?top_n=20&w5=${w5}&w10=${w10}&w20=${w20}`);
+        const resp = await fetch(apiUrl(`/api/signals?top_n=20&w5=${w5}&w10=${w10}&w20=${w20}`));
         if (!resp.ok) throw new Error("HTTP " + resp.status);
         const data = await resp.json();
 
@@ -299,7 +308,7 @@ function updateTradeTable(trades) {
 // ==========================================
 async function checkSchedulerStatus() {
     try {
-        const resp = await fetch("/api/scheduler/status");
+        const resp = await fetch(apiUrl("/api/scheduler/status"));
         if (!resp.ok) return;
         const data = await resp.json();
         updateSchedulerUI(data);
@@ -348,7 +357,7 @@ async function startScheduler() {
     const w20 = parseInt(document.getElementById("w20").value) / 100;
 
     try {
-        const resp = await fetch(`/api/scheduler/start?w5=${w5}&w10=${w10}&w20=${w20}`);
+        const resp = await fetch(apiUrl(`/api/scheduler/start?w5=${w5}&w10=${w10}&w20=${w20}`));
         const data = await resp.json();
         if (data.status === "started" || data.status === "already_running") {
             alert("✅ 定时任务已启动！\n\n每个交易日14:40自动筛选ETF。\n请保持程序在后台运行。");
@@ -364,7 +373,7 @@ async function startScheduler() {
 async function stopScheduler() {
     if (!confirm("确定要关闭每日14:40的自动筛选吗？")) return;
     try {
-        const resp = await fetch("/api/scheduler/stop");
+        const resp = await fetch(apiUrl("/api/scheduler/stop"));
         const data = await resp.json();
         alert("⏹ " + data.message);
         checkSchedulerStatus();
@@ -384,7 +393,7 @@ async function runScreeningNow() {
     const w20 = parseInt(document.getElementById("w20").value) / 100;
 
     try {
-        const resp = await fetch(`/api/realtime/screening?top_n=20&w5=${w5}&w10=${w10}&w20=${w20}`);
+        const resp = await fetch(apiUrl(`/api/realtime/screening?top_n=20&w5=${w5}&w10=${w10}&w20=${w20}`));
         const data = await resp.json();
 
         if (data.error) {
