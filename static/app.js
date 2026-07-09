@@ -401,11 +401,17 @@ async function runScreeningNow() {
     const w20 = parseInt(document.getElementById("w20").value) / 100;
 
     try {
-        const resp = await fetch(apiUrl(`/api/realtime/screening?top_n=20&w5=${w5}&w10=${w10}&w20=${w20}`));
-        const data = await resp.json();
+        const fetchUrl = apiUrl(`/api/realtime/screening?top_n=20&w5=${w5}&w10=${w10}&w20=${w20}`);
+        const resp = await fetch(fetchUrl);
+        const rawText = await resp.text();
+
+        // 调试：看实际返回了什么
+        let data;
+        try { data = JSON.parse(rawText); }
+        catch { alert("服务器返回异常 HTTP" + resp.status + ": " + rawText.substring(0, 200)); return; }
 
         if (data.error) {
-            alert("筛选失败: " + data.error);
+            alert("筛选失败: " + data.error + "\n(HTTP " + resp.status + ", URL: " + fetchUrl.substring(0,60) + "...)");
             return;
         }
 
