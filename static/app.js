@@ -8,19 +8,27 @@ let heatmapChart = null;
 let yearlyChart = null;
 let schedulerTimer = null;
 
-// 从URL中提取key参数，所有API请求都带上（应对Render cookie丢失问题）
-const urlParams = new URLSearchParams(window.location.search);
-const AUTH_KEY = urlParams.get("key") || "";
+// 从URL提取key并存到sessionStorage，防止手机浏览器丢失参数
+function getAuthKey() {
+    const p = new URLSearchParams(window.location.search);
+    const key = p.get("key");
+    if (key) { sessionStorage.setItem("etf_key", key); return key; }
+    return sessionStorage.getItem("etf_key") || "";
+}
 
 function apiUrl(path) {
+    const key = getAuthKey();
+    if (!key) return path;
     const sep = path.includes("?") ? "&" : "?";
-    return AUTH_KEY ? path + sep + "key=" + AUTH_KEY : path;
+    return path + sep + "key=" + key;
 }
 
 // ==========================================
 // 初始化
 // ==========================================
 document.addEventListener("DOMContentLoaded", () => {
+    // 存储key（防手机浏览器丢失URL参数）
+    getAuthKey();
     // 权重滑块联动
     ["w5", "w10", "w20"].forEach(id => {
         const slider = document.getElementById(id);
