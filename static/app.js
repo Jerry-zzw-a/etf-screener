@@ -86,6 +86,13 @@ async function runBacktest() {
     btn.disabled = true;
     showLoading(true);
 
+    // 计时显示（让用户知道没卡死）
+    const startTime = Date.now();
+    const timerId = setInterval(() => {
+        const el = document.querySelector(".loading-spinner p");
+        if (el) el.textContent = "计算中，已等待 " + Math.floor((Date.now() - startTime) / 1000) + " 秒...";
+    }, 1000);
+
     try {
         const params = new URLSearchParams({
             start_date: document.getElementById("startDate").value,
@@ -113,6 +120,7 @@ async function runBacktest() {
     } catch (err) {
         alert("回测失败: " + err.message + "\n\n提示: 首次加载数据需要约5秒，请稍后重试。");
     } finally {
+        clearInterval(timerId);
         showLoading(false);
         btn.textContent = origText;
         btn.disabled = false;
